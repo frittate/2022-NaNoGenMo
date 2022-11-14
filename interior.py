@@ -2,11 +2,16 @@ from bs4 import BeautifulSoup
 import requests
 import random
 import re
+import replicate
+
+STABLE_CLIENT = replicate.Client(api_token="48743e2e94ca24c5016954a617ac5830333afd21")
+model = STABLE_CLIENT.models.get("stability-ai/stable-diffusion")
 
 MAIN_LIST = "https://sfy.ru/scripts"
 ALL_HEADERS = []
 REGEX_FOR_NUMBERS = r'[0-9]'
 REGEX_FOR_DOT_WITH_AT_LEAST_TWO_SPACES_AFTER = r'\.\s{2,}'
+
 i = 0
 MAX_ITEMS = 80
 
@@ -36,6 +41,9 @@ def get_full_text(link):
 
   return full_text
 
+def get_stable_image(prompt_text):
+  return model.predict(prompt=prompt_text, width=256, height=256)
+
 def get_scene_headers(link):
   full_text_for_link = get_full_text(link)
   full_text_ints = full_text_for_link.split("\n")
@@ -46,6 +54,12 @@ def get_scene_headers(link):
     if any(x in single_line for x in ["INT.", "EXT.", "INTERIOR", "EXTERIOR"]):
       single_line = re.sub(REGEX_FOR_NUMBERS, '', single_line)
       single_line = re.sub(REGEX_FOR_DOT_WITH_AT_LEAST_TWO_SPACES_AFTER, '. ', single_line)
+
+      if ("YARD" in single_line):
+        image_urls = get_stable_image(single_line)
+        image_url = image_urls[0]
+        full_text_headers.append("![](" + image_url + ")")
+
       full_text_headers.append(single_line.strip())
 
   return random.sample(full_text_headers, len(full_text_headers))
@@ -61,14 +75,16 @@ for link in shuffled_links:
     ALL_HEADERS = random.sample(ALL_HEADERS, len(ALL_HEADERS))
     i += 1
 
-with open("headers.txt", "w", encoding="utf-8") as headersFile:
-    print("Writing to summary file: summary.txt")
-    text_to_write = "\n".join(ALL_HEADERS)
+with open("INTERIOR.txt", "w", encoding="utf-8") as headersFile:
+    print("Writing to summary file: INTERIOR.md")
+    text_to_write = "\n\n".join(ALL_HEADERS)
     print(text_to_write)
     headersFile.write(text_to_write)
     headersFile.close()
   
 
+
 # extract time designators: DAY, MORNING, EVENING, NIGHT, DAWN, DUSK, SUNSET, SUNDOWN
 # sort by them
 # strip all characters before the int and ext designators
+# add some images from stability
